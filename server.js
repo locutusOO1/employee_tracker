@@ -1,5 +1,6 @@
 const inquirer = require("inquirer");
 const mysql = require("mysql");
+const cTable = require('console.table');
 
 const actionList = ["Add Department","Add Role","Add Employee",
                     "View Departments","View Roles","View Employees",
@@ -117,14 +118,14 @@ function viewEmployeesByManager() {
     connection.query(
         `select ifnull(concat(m.first_name," ",m.last_name),"*No Manager") Manager,
             concat(e.first_name," ",e.last_name) Employee,
-            ifnull(d.name,"*No Department") Employee Department,
-            r.title Employee Title,
-            concat('$',format(r.salary,2)) Employee Salary
+            ifnull(d.name,"*No Department") "Employee Department",
+            r.title "Employee Title",
+            concat('$',format(r.salary,2)) "Employee Salary"
         from employee e
         left join employee m on (e.manager_id = m.id)
         left join role r on (e.role_id = r.id)
         left join department d on (r.department_id = d.id)
-        order by manager, department, employee, title, salary`,
+        order by manager, "Employee Department", "Employee Title", title, "Employee Salary"`,
         (err, results) => {
         if (err) throw err;
         console.table(results);
