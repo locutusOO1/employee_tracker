@@ -4,7 +4,7 @@ const mysql = require("mysql");
 const actionList = ["Add Department","Add Role","Add Employee",
                     "View Departments","View Roles","View Employees",
                     "Update Employee Role","Update Employee Manager",
-                    "View Employees by Manger",
+                    "View Employees by Manager",
                     "Delete Department","Delete Role","Delete Employee",
                     "View Total Utilized Budget by Department","Exit"];
 
@@ -49,6 +49,9 @@ function initPrompt () {
             case "Update Employee Role":
             case "Update Employee Manager":
             case "View Employees by Manager":
+                console.log("View Employees by Manager");
+                viewEmployeesByManager();
+                break;
             case "Delete Department":
             case "Delete Role":
             case "Delete Employee":
@@ -57,6 +60,8 @@ function initPrompt () {
                 break;
             case "Exit":
             default:
+                console.log("answers.action:");
+                console.log(answer.action);
                 connection.end();
                 process.exit();
         }
@@ -89,15 +94,36 @@ function viewEmployees() {
 
 function viewBudgetByDept() {
     connection.query(
-        `select ifnull(d.name,"*No Dept") as Department,
-            concat('$',format(sum(r.salary),2)) as Budget,
-            count(1) as "Number of Employees",
-            concat('$',format((sum(r.salary)/count(1)),2)) as "Avg Cost Per Employee"
+        `select ifnull(d.name,"*No Dept") Department,
+            concat('$',format(sum(r.salary),2)) Budget,
+            count(1) "Number of Employees",
+            concat('$',format((sum(r.salary)/count(1)),2)) "Avg Cost Per Employee"
         from employee e
         inner join role r on (e.role_id = r.id)
         left join department d on (r.department_id = d.id)
         group by ifnull(d.name,"*No Dept")
-        order by ifnull(d.name,"*No Dept")`,(err, results) => {
+        order by ifnull(d.name,"*No Dept")`,
+        (err, results) => {
+        if (err) throw err;
+        console.table(results);
+        initPrompt();
+    });
+}
+
+function viewEmployeesByManager() {
+    console.log("viewEmployeesByManager()");
+    connection.query(
+        `select ifnull(concat(m.first_name," ",m.last_name),"*No Manager") Manager,
+            concat(e.first_name," ",e.last_name) Employee,
+            ifnull(d.name,"*No Department") Employee Department,
+            r.title Employee Title,
+            concat('$',format(r.salary,2)) Employee Salary
+        from employee e
+        left join employee m on (e.manager_id = m.id)
+        left join role r on (e.role_id = r.id)
+        left join department d on (r.department_id = d.id)
+        order by manager, department, employee, title, salary`,
+        (err, results) => {
         if (err) throw err;
         console.table(results);
         initPrompt();
