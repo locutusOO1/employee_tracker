@@ -24,7 +24,6 @@ connection.connect(err => {
 });
 
 function initPrompt () {
-    // console.log("init prompt...");
     inquirer.prompt([
         {
             name: "action",
@@ -33,12 +32,13 @@ function initPrompt () {
             choices: actionList
         }
     ]).then(answer => {
-        // console.log(answer);
         switch (answer.action) {
             case "Add Department":
                 addDepartment();
                 break;
             case "Add Role":
+                addRole();
+                break;
             case "Add Employee":
             case "View Departments":
                 viewDepts();
@@ -141,13 +141,10 @@ function addDepartment() {
             type: "input"
         }
     ]).then(answer => {
-        // console.log(answer.dept);
-        // initPrompt();
         connection.query("insert into department (name) values (?)",
         answer.dept,
         function(err) {
             if (err) throw err;
-            console.log("Added department!");
             viewDepts();
             initPrompt();
         });
@@ -155,8 +152,6 @@ function addDepartment() {
 }
 
 function deleteDepartment() {
-    // console.log("deleteDepartment");
-    // initPrompt();
     connection.query("select * from department order by name",
     function(err, results) {
         if (err) throw err;
@@ -184,9 +179,46 @@ function deleteDepartment() {
     });
 }
 
+function addRole() {
+    let options = [];
+    connection.query("select * from department order by name,id",
+    function(err, results) {
+        let resArr = [];
+        if (err) throw err;
+        results.forEach(element => {
+            resArr.push(`${element.name} - ${element.id}`);
+        });
+        inquirer.prompt([
+            {
+                name: "title",
+                type: "input",
+                message: "Enter new title:"
+            },
+            {
+                name: "salary",
+                type: "number",
+                message: "Enter new salary:"
+            },
+            {
+                name: "department_id",
+                type: "list",
+                message: "Choose department (Name - ID):",
+                choices: resArr
+            }
+        ]).then(answers => {
+            let deptId = answers.department_id.split(' - ').pop();
+            connection.query("insert into role (title,salary,department_id) values (?,?,?)",
+            [answers.title,answers.salary,deptId],
+            function(err) {
+                if (err) throw err;
+                initPrompt();
+            }
+            );
+        });
+    });
+}
+
 function deleteRole() {
-    // console.log("deleteDepartment");
-    // initPrompt();
     connection.query("select title,format(salary,2) salary,ifnull(department_id,'*No Dept') department_id,id from role order by title,department_id",
     function(err, results) {
         if (err) throw err;
