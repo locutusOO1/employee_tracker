@@ -35,6 +35,8 @@ function initPrompt () {
         // console.log(answer);
         switch (answer.action) {
             case "Add Department":
+                addDepartment();
+                break;
             case "Add Role":
             case "Add Employee":
             case "View Departments":
@@ -49,19 +51,20 @@ function initPrompt () {
             case "Update Employee Role":
             case "Update Employee Manager":
             case "View Employees by Manager":
-                console.log("View Employees by Manager");
                 viewEmployeesByManager();
                 break;
             case "Delete Department":
+                deleteDepartment();
+                break;
             case "Delete Role":
+                deleteRole();
+                break;
             case "Delete Employee":
             case "View Total Utilized Budget by Department":
                 viewBudgetByDept();
                 break;
             case "Exit":
             default:
-                console.log("answers.action:");
-                console.log(answer.action);
                 connection.end();
                 process.exit();
         }
@@ -69,7 +72,7 @@ function initPrompt () {
 }
 
 function viewDepts() {
-    connection.query("select * from department",(err, results) => {
+    connection.query("select * from department order by name",(err, results) => {
         if (err) throw err;
         console.table(results);
         initPrompt();
@@ -77,7 +80,7 @@ function viewDepts() {
 }
 
 function viewRoles() {
-    connection.query("select * from role",(err, results) => {
+    connection.query("select * from role order by title",(err, results) => {
         if (err) throw err;
         console.table(results);
         initPrompt();
@@ -85,7 +88,7 @@ function viewRoles() {
 }
 
 function viewEmployees() {
-    connection.query("select * from employee",(err, results) => {
+    connection.query("select * from employee order by first_name,last_name",(err, results) => {
         if (err) throw err;
         console.table(results);
         initPrompt();
@@ -111,7 +114,6 @@ function viewBudgetByDept() {
 }
 
 function viewEmployeesByManager() {
-    console.log("viewEmployeesByManager()");
     connection.query(
         `select ifnull(concat(m.first_name," ",m.last_name),"*No Manager") Manager,
             concat(e.first_name," ",e.last_name) Employee,
@@ -127,5 +129,87 @@ function viewEmployeesByManager() {
         if (err) throw err;
         console.table(results);
         initPrompt();
+    });
+}
+
+function addDepartment() {
+    inquirer.prompt([
+        {
+            name: "dept",
+            message: "Enter new department:",
+            type: "input"
+        }
+    ]).then(answer => {
+        // console.log(answer.dept);
+        // initPrompt();
+        connection.query("insert into department (name) values (?)",
+        answer.dept,
+        function(err) {
+            if (err) throw err;
+            console.log("Added department!");
+            viewDepts();
+            initPrompt();
+        });
+    });
+}
+
+function deleteDepartment() {
+    // console.log("deleteDepartment");
+    // initPrompt();
+    connection.query("select * from department order by name",
+    function(err, results) {
+        if (err) throw err;
+        inquirer.prompt([
+            {
+                name: "choice",
+                type: "list",
+                message: "Choose department to delete (Name - Dept):",
+                choices: function () {
+                    var options = [];
+                    results.forEach(element => {
+                        options.push(`${element.name} - ${element.id}`);
+                    });
+                    return options;
+                }
+            }
+        ]).then(function(answer) {
+            connection.query("delete from department where concat(name,' - ',id) = ?",
+            answer.choice,
+            function(err2, results2) {
+                if (err2) throw err2;
+                initPrompt();
+            });
+        });
+    });
+}
+
+function deleteRole() {
+    // console.log("deleteDepartment");
+    // initPrompt();
+    connection.query("select title,format(salary,2) salary,ifnull(department_id,'*No Dept') department_id,id from role order by title,department_id",
+    function(err, results) {
+        if (err) throw err;
+        inquirer.prompt([
+            {
+                name: "choice",
+                type: "list",
+                message: "Choose role to delete (Title - Salary - Dept ID - ID):",
+                choices: function () {
+                    var options = [];
+                    results.forEach(element => {
+                        options.push(`${element.title} - ${element.salary} - ${element.department_id} - ${element.id}`);
+                    });
+                    return options;
+                }
+            }
+        ]).then(function(answer) {
+            console.log(answer.choice);
+            connection.query("delete from role where concat(title,' - ',format(salary,2),' - ',ifnull(department_id,'*No Dept'),' - ',id) = ?",
+            answer.choice,
+            function(err2, results2) {
+                if (err2) throw err2;
+                initPrompt();
+            });
+        });
     });
 }
