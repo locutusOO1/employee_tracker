@@ -52,6 +52,8 @@ function initPrompt () {
                 viewEmployees();
                 break;
             case "Update Employee Role":
+                updateEmployeeRole();
+                break;
             case "Update Employee Manager":
             case "View Employees by Manager":
                 viewEmployeesByManager();
@@ -239,7 +241,6 @@ function deleteRole() {
                 }
             }
         ]).then(function(answer) {
-            console.log(answer.choice);
             connection.query("delete from role where concat(title,' - ',format(salary,2),' - ',ifnull(department_id,'*No Dept'),' - ',id) = ?",
             answer.choice,
             function(err2, results2) {
@@ -321,12 +322,59 @@ function deleteEmployee() {
                 }
             }
         ]).then(function(answer) {
-            console.log(answer.choice);
             connection.query("delete from employee where concat(first_name,' ',last_name,' - ',role_id,' - ',manager_id,' - ',id) = ?",
             answer.choice,
             function(err2, results2) {
                 if (err2) throw err2;
                 initPrompt();
+            });
+        });
+    });
+}
+
+function updateEmployeeRole() {
+    connection.query("select * from employee order by first_name,last_name,role_id,manager_id",
+    function(err, results) {
+        if (err) throw err;
+        inquirer.prompt([
+            {
+                name: "choice",
+                type: "list",
+                message: "Choose employee to update (Name - Role ID - Manager ID - Employee ID):",
+                choices: function () {
+                    var options = [];
+                    results.forEach(element => {
+                        options.push(`${element.first_name} ${element.last_name} - ${element.role_id} - ${element.manager_id} - ${element.id}`);
+                    });
+                    return options;
+                }
+            }
+        ]).then(function(answer) {
+            connection.query("select title,format(salary,2) salary,ifnull(department_id,'*No Dept') department_id,id from role order by title,department_id",
+            function(err2, results2) {
+                if (err2) throw err2;
+                inquirer.prompt([
+                    {
+                        name: "choice",
+                        type: "list",
+                        message: "Choose role to update to (Title - Salary - Dept ID - ID):",
+                        choices: function () {
+                            var options2 = [];
+                            results2.forEach(element => {
+                                options2.push(`${element.title} - ${element.salary} - ${element.department_id} - ${element.id}`);
+                            });
+                            return options2;
+                        }
+                    }
+                ]).then(function(answer2) {
+                    let empId = parseInt(answer.choice.split(' - ').pop());
+                    let deptId = parseInt(answer2.choice.split(' - ').pop());
+                    connection.query(`update employee set role_id = ${deptId} where id = ${empId}`,
+                    function(err3, results3) {
+                        if (err3) throw err3;
+                        initPrompt();
+                    });
+                });
             });
         });
     });
