@@ -55,6 +55,8 @@ function initPrompt () {
                 updateEmployeeRole();
                 break;
             case "Update Employee Manager":
+                updateEmployeeManager();
+                break;
             case "View Employees by Manager":
                 viewEmployeesByManager();
                 break;
@@ -370,6 +372,54 @@ function updateEmployeeRole() {
                     let empId = parseInt(answer.choice.split(' - ').pop());
                     let deptId = parseInt(answer2.choice.split(' - ').pop());
                     connection.query(`update employee set role_id = ${deptId} where id = ${empId}`,
+                    function(err3, results3) {
+                        if (err3) throw err3;
+                        initPrompt();
+                    });
+                });
+            });
+        });
+    });
+}
+
+function updateEmployeeManager() {
+    connection.query("select * from employee order by first_name,last_name,role_id,manager_id",
+    function(err, results) {
+        if (err) throw err;
+        inquirer.prompt([
+            {
+                name: "choice",
+                type: "list",
+                message: "Choose employee to update (Name - Role ID - Manager ID - Employee ID):",
+                choices: function () {
+                    var options = [];
+                    results.forEach(element => {
+                        options.push(`${element.first_name} ${element.last_name} - ${element.role_id} - ${element.manager_id} - ${element.id}`);
+                    });
+                    return options;
+                }
+            }
+        ]).then(function(answer) {
+            connection.query("select * from employee order by first_name,last_name,role_id,manager_id",
+            function(err2, results2) {
+                if (err2) throw err2;
+                inquirer.prompt([
+                    {
+                        name: "choice",
+                        type: "list",
+                        message: "Choose manager to update to (Name - Role ID - Manager ID - Employee ID):",
+                        choices: function () {
+                            var options2 = [];
+                            results2.forEach(element => {
+                                options2.push(`${element.first_name} ${element.last_name} - ${element.role_id} - ${element.manager_id} - ${element.id}`);
+                            });
+                            return options2;
+                        }
+                    }
+                ]).then(function(answer2) {
+                    let empId = parseInt(answer.choice.split(' - ').pop());
+                    let managerId = parseInt(answer2.choice.split(' - ').pop());
+                    connection.query(`update employee set manager_id = ${managerId} where id = ${empId}`,
                     function(err3, results3) {
                         if (err3) throw err3;
                         initPrompt();
