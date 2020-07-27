@@ -63,6 +63,8 @@ function initPrompt () {
                 deleteRole();
                 break;
             case "Delete Employee":
+                deleteEmployee();
+                break;
             case "View Total Utilized Budget by Department":
                 viewBudgetByDept();
                 break;
@@ -301,31 +303,31 @@ function addEmployee() {
     });
 }
 
-// function deleteEmployee() {
-//     connection.query("select title,format(salary,2) salary,ifnull(department_id,'*No Dept') department_id,id from role order by title,department_id",
-//     function(err, results) {
-//         if (err) throw err;
-//         inquirer.prompt([
-//             {
-//                 name: "choice",
-//                 type: "list",
-//                 message: "Choose role to delete (Title - Salary - Dept ID - ID):",
-//                 choices: function () {
-//                     var options = [];
-//                     results.forEach(element => {
-//                         options.push(`${element.title} - ${element.salary} - ${element.department_id} - ${element.id}`);
-//                     });
-//                     return options;
-//                 }
-//             }
-//         ]).then(function(answer) {
-//             console.log(answer.choice);
-//             connection.query("delete from role where concat(title,' - ',format(salary,2),' - ',ifnull(department_id,'*No Dept'),' - ',id) = ?",
-//             answer.choice,
-//             function(err2, results2) {
-//                 if (err2) throw err2;
-//                 initPrompt();
-//             });
-//         });
-//     });
-// }
+function deleteEmployee() {
+    connection.query("select * from employee order by first_name,last_name,role_id,manager_id",
+    function(err, results) {
+        if (err) throw err;
+        inquirer.prompt([
+            {
+                name: "choice",
+                type: "list",
+                message: "Choose employee to delete (Name - Role ID - Manager ID - Employee ID):",
+                choices: function () {
+                    var options = [];
+                    results.forEach(element => {
+                        options.push(`${element.first_name} ${element.last_name} - ${element.role_id} - ${element.manager_id} - ${element.id}`);
+                    });
+                    return options;
+                }
+            }
+        ]).then(function(answer) {
+            console.log(answer.choice);
+            connection.query("delete from employee where concat(first_name,' ',last_name,' - ',role_id,' - ',manager_id,' - ',id) = ?",
+            answer.choice,
+            function(err2, results2) {
+                if (err2) throw err2;
+                initPrompt();
+            });
+        });
+    });
+}
