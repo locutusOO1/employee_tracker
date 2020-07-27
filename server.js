@@ -40,6 +40,8 @@ function initPrompt () {
                 addRole();
                 break;
             case "Add Employee":
+                addEmployee();
+                break;
             case "View Departments":
                 viewDepts();
                 break;
@@ -180,7 +182,6 @@ function deleteDepartment() {
 }
 
 function addRole() {
-    let options = [];
     connection.query("select * from department order by name,id",
     function(err, results) {
         let resArr = [];
@@ -246,3 +247,85 @@ function deleteRole() {
         });
     });
 }
+
+function addEmployee() {
+    connection.query("select * from role order by title,salary,department_id",
+    function(err, results) {
+        let roleArr = [];
+        if (err) throw err;
+        results.forEach(element => {
+            roleArr.push(`${element.title} - ${element.salary} - ${element.department_id} - ${element.id}`);
+        });
+        connection.query("select * from employee order by manager_id,first_name,last_name,role_id",
+        function(err2,results2) {
+            let managerArr = [];
+            if (err2) throw err2;
+            results2.forEach(element => {
+                managerArr.push(`${element.first_name} ${element.last_name} - ${element.manager_id} - ${element.role_id} - ${element.id}`);
+            });
+            inquirer.prompt([
+                {
+                    name: "first_name",
+                    type: "input",
+                    message: "Enter first name:"
+                },
+                {
+                    name: "last_name",
+                    type: "input",
+                    message: "Enter last name:"
+                },
+                {
+                    name: "role_id",
+                    type: "list",
+                    message: "Choose role (Title - Salary - Dept ID - Role ID):",
+                    choices: roleArr
+                },
+                {
+                    name: "manager_id",
+                    type: "list",
+                    message: "Choose manager (Name - Manager ID - Role ID - Employee ID):",
+                    choices: managerArr
+                }
+            ]).then(answers => {
+                let roleId = answers.role_id.split(' - ').pop();
+                let managerId = answers.manager_id.split(' - ').pop();
+                connection.query("insert into employee (first_name,last_name,role_id,manager_id) values (?,?,?,?)",
+                [answers.first_name,answers.last_name,roleId,managerId],
+                function(err) {
+                    if (err) throw err;
+                    initPrompt();
+                }
+                );
+            });
+        });
+    });
+}
+
+// function deleteEmployee() {
+//     connection.query("select title,format(salary,2) salary,ifnull(department_id,'*No Dept') department_id,id from role order by title,department_id",
+//     function(err, results) {
+//         if (err) throw err;
+//         inquirer.prompt([
+//             {
+//                 name: "choice",
+//                 type: "list",
+//                 message: "Choose role to delete (Title - Salary - Dept ID - ID):",
+//                 choices: function () {
+//                     var options = [];
+//                     results.forEach(element => {
+//                         options.push(`${element.title} - ${element.salary} - ${element.department_id} - ${element.id}`);
+//                     });
+//                     return options;
+//                 }
+//             }
+//         ]).then(function(answer) {
+//             console.log(answer.choice);
+//             connection.query("delete from role where concat(title,' - ',format(salary,2),' - ',ifnull(department_id,'*No Dept'),' - ',id) = ?",
+//             answer.choice,
+//             function(err2, results2) {
+//                 if (err2) throw err2;
+//                 initPrompt();
+//             });
+//         });
+//     });
+// }
