@@ -2,12 +2,12 @@ const inquirer = require("inquirer");
 const mysql = require("mysql");
 const cTable = require('console.table');
 
-const actionList = ["Add Department","Add Role","Add Employee",
-                    "View Departments","View Roles","View Employees",
+const actionList = ["View Departments","View Roles","View Employees",
+                    "View Employees by Manager","View Total Utilized Budget by Department",
+                    "Add Department","Add Role","Add Employee",
                     "Update Employee Role","Update Employee Manager",
-                    "View Employees by Manager",
                     "Delete Department","Delete Role","Delete Employee",
-                    "View Total Utilized Budget by Department","Exit"];
+                    "Exit"];
 
 const connection = mysql.createConnection({
     host: "localhost",
@@ -81,7 +81,7 @@ function initPrompt () {
 }
 
 function viewDepts() {
-    connection.query("select * from department order by name",(err, results) => {
+    connection.query("select name Department, id DeptID from department order by name",(err, results) => {
         if (err) throw err;
         console.table(results);
         initPrompt();
@@ -89,7 +89,12 @@ function viewDepts() {
 }
 
 function viewRoles() {
-    connection.query("select * from role order by title",(err, results) => {
+    connection.query(
+        `select r.title Title, concat('$',format(r.salary,2)) Salary, d.name Department,r.id RoleID
+         from role r
+         left outer join department d on (r.department_id = d.id)
+         order by r.title,d.name`,
+         (err, results) => {
         if (err) throw err;
         console.table(results);
         initPrompt();
@@ -97,7 +102,15 @@ function viewRoles() {
 }
 
 function viewEmployees() {
-    connection.query("select * from employee order by first_name,last_name",(err, results) => {
+    connection.query(
+        `select e.first_name "First Name",e.last_name "Last Name",d.name Name,r.title Title, 
+            concat('$',format(r.salary,2)) Salary,e.id "Employee ID",concat(m.first_name," ",m.last_name) Manager
+         from employee e
+         left join role r on (e.role_id = r.id)
+         left join department d on (r.department_id = d.id)
+         left join employee m on (e.manager_id = m.id)
+         order by e.first_name,e.last_name,d.name,r.title`,
+         (err, results) => {
         if (err) throw err;
         console.table(results);
         initPrompt();
@@ -145,8 +158,9 @@ function addDepartment() {
     inquirer.prompt([
         {
             name: "dept",
-            message: "Enter new department:",
-            type: "input"
+            message: "Enter new department name:",
+            type: "input",
+            validate: answer => (answer.length > 0)||"Please enter something for the department name."
         }
     ]).then(answer => {
         connection.query("insert into department (name) values (?)",
@@ -167,7 +181,7 @@ function deleteDepartment() {
             {
                 name: "choice",
                 type: "list",
-                message: "Choose department to delete (Name - Dept):",
+                message: "Choose department to delete (Department Name - Dept ID):",
                 choices: function () {
                     var options = [];
                     results.forEach(element => {
@@ -199,17 +213,19 @@ function addRole() {
             {
                 name: "title",
                 type: "input",
-                message: "Enter new title:"
+                message: "Enter new title:",
+                validate: answers => (answers.length > 0)||"Please enter something for the new title."
             },
             {
                 name: "salary",
-                type: "number",
-                message: "Enter new salary:"
+                type: "input",
+                message: "Enter new salary:",
+                validate: answers => (parseInt(answers) >= 0)||"Please enter valid number for the salary."
             },
             {
                 name: "department_id",
                 type: "list",
-                message: "Choose department (Name - ID):",
+                message: "Choose department (Department Name - Dept ID):",
                 choices: resArr
             }
         ]).then(answers => {
@@ -226,25 +242,30 @@ function addRole() {
 }
 
 function deleteRole() {
-    connection.query("select title,format(salary,2) salary,ifnull(department_id,'*No Dept') department_id,id from role order by title,department_id",
+    connection.query(
+        `select r.title Title,concat('$',format(r.salary,2)) Salary,d.name Department,r.id RoleID
+         from role r
+         left join department d on (d.id = r.department_id)
+         order by r.title,d.name`,
     function(err, results) {
         if (err) throw err;
         inquirer.prompt([
             {
-                name: "choice",
+                name: "role_id",
                 type: "list",
-                message: "Choose role to delete (Title - Salary - Dept ID - ID):",
+                message: "Choose role to delete (Title - Salary - Department - RoleID):",
                 choices: function () {
                     var options = [];
                     results.forEach(element => {
-                        options.push(`${element.title} - ${element.salary} - ${element.department_id} - ${element.id}`);
+                        options.push(`${element.Title} - ${element.Salary} - ${element.Department} - ${element.RoleID}`);
                     });
                     return options;
                 }
             }
         ]).then(function(answer) {
-            connection.query("delete from role where concat(title,' - ',format(salary,2),' - ',ifnull(department_id,'*No Dept'),' - ',id) = ?",
-            answer.choice,
+            let roleId = answer.role_id.split(' - ').pop();
+            connection.query("delete from role where id = ?",
+            roleId,
             function(err2, results2) {
                 if (err2) throw err2;
                 initPrompt();
@@ -254,41 +275,53 @@ function deleteRole() {
 }
 
 function addEmployee() {
-    connection.query("select * from role order by title,salary,department_id",
+    connection.query(
+        `select r.title Title,concat('$',format(r.salary,2)) Salary,d.name Department,r.id RoleID
+         from role r
+         left join department d on (d.id = r.department_id)
+         order by r.title,d.name`,
     function(err, results) {
         let roleArr = [];
         if (err) throw err;
         results.forEach(element => {
-            roleArr.push(`${element.title} - ${element.salary} - ${element.department_id} - ${element.id}`);
+            roleArr.push(`${element.Title} - ${element.Salary} - ${element.Department} - ${element.RoleID}`);
         });
-        connection.query("select * from employee order by manager_id,first_name,last_name,role_id",
+        connection.query(
+            `select e.first_name FirstName,e.last_name LastName,d.name Department,r.title Title,e.id EmployeeID,concat(m.first_name," ",m.last_name) Manager
+             from employee e
+             left join role r on (e.role_id = r.id)
+             left join department d on (r.department_id = d.id)
+             left join employee m on (e.manager_id = m.id)
+             order by e.first_name,e.last_name,d.name,r.title`,
         function(err2,results2) {
             let managerArr = [];
             if (err2) throw err2;
             results2.forEach(element => {
-                managerArr.push(`${element.first_name} ${element.last_name} - ${element.manager_id} - ${element.role_id} - ${element.id}`);
+                managerArr.push(`${element.FirstName} ${element.LastName} - ${element.Title} - ${element.Department} - ${element.EmployeeID}`);
             });
             inquirer.prompt([
                 {
                     name: "first_name",
                     type: "input",
-                    message: "Enter first name:"
+                    message: "Enter first name:",
+                    validate: answers => (answers.length > 0)||"Please enter something for the first name."
                 },
                 {
                     name: "last_name",
                     type: "input",
-                    message: "Enter last name:"
+                    message: "Enter last name:",
+                    validate: answers => (answers.length > 0)||"Please enter something for the last name."
                 },
                 {
                     name: "role_id",
                     type: "list",
-                    message: "Choose role (Title - Salary - Dept ID - Role ID):",
+                    message: "Choose role (Title - Salary - Department - RoleID):",
                     choices: roleArr
                 },
                 {
                     name: "manager_id",
                     type: "list",
-                    message: "Choose manager (Name - Manager ID - Role ID - Employee ID):",
+                    message: "Choose manager (Name - Title - Department - EmployeeID):",
                     choices: managerArr
                 }
             ]).then(answers => {
@@ -307,25 +340,33 @@ function addEmployee() {
 }
 
 function deleteEmployee() {
-    connection.query("select * from employee order by first_name,last_name,role_id,manager_id",
+    connection.query(
+        `select e.first_name FirstName,e.last_name LastName,d.name Department,r.title Title, 
+         concat('$',format(r.salary,2)) Salary,concat(m.first_name," ",m.last_name) Manager,e.id EmployeeID
+         from employee e
+         left join role r on (e.role_id = r.id)
+         left join department d on (r.department_id = d.id)
+         left join employee m on (e.manager_id = m.id)
+         order by e.first_name,e.last_name,d.name,r.title`,
     function(err, results) {
         if (err) throw err;
         inquirer.prompt([
             {
-                name: "choice",
+                name: "employee_id",
                 type: "list",
-                message: "Choose employee to delete (Name - Role ID - Manager ID - Employee ID):",
+                message: "Choose employee to delete (Name - Department - Title - Salary - Manager - EmployeeID):",
                 choices: function () {
                     var options = [];
                     results.forEach(element => {
-                        options.push(`${element.first_name} ${element.last_name} - ${element.role_id} - ${element.manager_id} - ${element.id}`);
+                        options.push(`${element.FirstName} ${element.LastName} - ${element.Department} - ${element.Title} - ${element.Salary} - ${element.Manager} - ${element.EmployeeID}`);
                     });
                     return options;
                 }
             }
         ]).then(function(answer) {
-            connection.query("delete from employee where concat(first_name,' ',last_name,' - ',role_id,' - ',manager_id,' - ',id) = ?",
-            answer.choice,
+            let employeeId = answer.employee_id.split(' - ').pop();
+            connection.query("delete from employee where id = ?",
+            employeeId,
             function(err2, results2) {
                 if (err2) throw err2;
                 initPrompt();
@@ -335,42 +376,53 @@ function deleteEmployee() {
 }
 
 function updateEmployeeRole() {
-    connection.query("select * from employee order by first_name,last_name,role_id,manager_id",
+    connection.query(
+        `select e.first_name FirstName,e.last_name LastName,d.name Department,r.title Title, 
+         concat('$',format(r.salary,2)) Salary,concat(m.first_name," ",m.last_name) Manager,e.id EmployeeID
+         from employee e
+         left join role r on (e.role_id = r.id)
+         left join department d on (r.department_id = d.id)
+         left join employee m on (e.manager_id = m.id)
+         order by e.first_name,e.last_name,d.name,r.title`,
     function(err, results) {
         if (err) throw err;
         inquirer.prompt([
             {
-                name: "choice",
+                name: "employee_id",
                 type: "list",
-                message: "Choose employee to update (Name - Role ID - Manager ID - Employee ID):",
+                message: "Choose employee to update (Name - Department - Title - Salary - Manager - EmployeeID):",
                 choices: function () {
                     var options = [];
                     results.forEach(element => {
-                        options.push(`${element.first_name} ${element.last_name} - ${element.role_id} - ${element.manager_id} - ${element.id}`);
+                        options.push(`${element.FirstName} ${element.LastName} - ${element.Department} - ${element.Title} - ${element.Salary} - ${element.Manager} - ${element.EmployeeID}`);
                     });
                     return options;
                 }
             }
         ]).then(function(answer) {
-            connection.query("select title,format(salary,2) salary,ifnull(department_id,'*No Dept') department_id,id from role order by title,department_id",
+            connection.query(
+                `select r.title Title,concat('$',format(r.salary,2)) Salary,d.name Department,r.id RoleID
+                 from role r
+                 left join department d on (d.id = r.department_id)
+                 order by r.title,d.name`,
             function(err2, results2) {
                 if (err2) throw err2;
                 inquirer.prompt([
                     {
-                        name: "choice",
+                        name: "role_id",
                         type: "list",
-                        message: "Choose role to update to (Title - Salary - Dept ID - ID):",
+                        message: "Choose role to delete (Title - Salary - Department - RoleID):",
                         choices: function () {
                             var options2 = [];
                             results2.forEach(element => {
-                                options2.push(`${element.title} - ${element.salary} - ${element.department_id} - ${element.id}`);
+                                options2.push(`${element.Title} - ${element.Salary} - ${element.Department} - ${element.RoleID}`);
                             });
                             return options2;
                         }
                     }
                 ]).then(function(answer2) {
-                    let empId = parseInt(answer.choice.split(' - ').pop());
-                    let deptId = parseInt(answer2.choice.split(' - ').pop());
+                    let empId = parseInt(answer.employee_id.split(' - ').pop());
+                    let deptId = parseInt(answer2.role_id.split(' - ').pop());
                     connection.query(`update employee set role_id = ${deptId} where id = ${empId}`,
                     function(err3, results3) {
                         if (err3) throw err3;
@@ -383,42 +435,56 @@ function updateEmployeeRole() {
 }
 
 function updateEmployeeManager() {
-    connection.query("select * from employee order by first_name,last_name,role_id,manager_id",
+    connection.query(
+        `select e.first_name FirstName,e.last_name LastName,d.name Department,r.title Title, 
+         concat('$',format(r.salary,2)) Salary,concat(m.first_name," ",m.last_name) Manager,e.id EmployeeID
+         from employee e
+         left join role r on (e.role_id = r.id)
+         left join department d on (r.department_id = d.id)
+         left join employee m on (e.manager_id = m.id)
+         order by e.first_name,e.last_name,d.name,r.title`,
     function(err, results) {
         if (err) throw err;
         inquirer.prompt([
             {
-                name: "choice",
+                name: "employee_id",
                 type: "list",
-                message: "Choose employee to update (Name - Role ID - Manager ID - Employee ID):",
+                message: "Choose employee to update (Name - Department - Title - Salary - Manager - EmployeeID):",
                 choices: function () {
                     var options = [];
                     results.forEach(element => {
-                        options.push(`${element.first_name} ${element.last_name} - ${element.role_id} - ${element.manager_id} - ${element.id}`);
+                        options.push(`${element.FirstName} ${element.LastName} - ${element.Department} - ${element.Title} - ${element.Salary} - ${element.Manager} - ${element.EmployeeID}`);
                     });
                     return options;
                 }
             }
         ]).then(function(answer) {
-            connection.query("select * from employee order by first_name,last_name,role_id,manager_id",
+            connection.query(
+                `select e.first_name FirstName,e.last_name LastName,d.name Department,r.title Title, 
+                 concat('$',format(r.salary,2)) Salary,concat(m.first_name," ",m.last_name) Manager,e.id EmployeeID
+                 from employee e
+                 left join role r on (e.role_id = r.id)
+                 left join department d on (r.department_id = d.id)
+                 left join employee m on (e.manager_id = m.id)
+                 order by e.first_name,e.last_name,d.name,r.title`,
             function(err2, results2) {
                 if (err2) throw err2;
                 inquirer.prompt([
                     {
-                        name: "choice",
+                        name: "manager_id",
                         type: "list",
-                        message: "Choose manager to update to (Name - Role ID - Manager ID - Employee ID):",
+                        message: "Choose manager to update to (Name - Department - Title - Salary - Manager - EmployeeID):",
                         choices: function () {
                             var options2 = [];
                             results2.forEach(element => {
-                                options2.push(`${element.first_name} ${element.last_name} - ${element.role_id} - ${element.manager_id} - ${element.id}`);
+                                options2.push(`${element.FirstName} ${element.LastName} - ${element.Department} - ${element.Title} - ${element.Salary} - ${element.Manager} - ${element.EmployeeID}`);
                             });
                             return options2;
                         }
                     }
                 ]).then(function(answer2) {
-                    let empId = parseInt(answer.choice.split(' - ').pop());
-                    let managerId = parseInt(answer2.choice.split(' - ').pop());
+                    let empId = parseInt(answer.employee_id.split(' - ').pop());
+                    let managerId = parseInt(answer2.manager_id.split(' - ').pop());
                     connection.query(`update employee set manager_id = ${managerId} where id = ${empId}`,
                     function(err3, results3) {
                         if (err3) throw err3;

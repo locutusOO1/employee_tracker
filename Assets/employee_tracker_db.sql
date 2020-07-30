@@ -16,7 +16,7 @@ create table role (
     salary decimal(12,2) not null,
     department_id integer(10) not null,
     primary key (id),
-    foreign key (department_id) references department(id)
+    foreign key (department_id) references department(id) on delete cascade
 );
 
 create table employee (
@@ -26,6 +26,6 @@ create table employee (
     role_id integer(10) not null,
     manager_id integer(10) not null,
     primary key (id),
-    foreign key (role_id) references role(id),
-    foreign key (manager_id) references employee(id)
+    foreign key (role_id) references role(id) on delete cascade,
+    foreign key (manager_id) references employee(id) on delete cascade
 );
