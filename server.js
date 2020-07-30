@@ -167,7 +167,6 @@ function addDepartment() {
         answer.dept,
         function(err) {
             if (err) throw err;
-            viewDepts();
             initPrompt();
         });
     });
