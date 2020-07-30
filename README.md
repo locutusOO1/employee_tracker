@@ -16,6 +16,8 @@
 
   ## Installation:
   * Install dependencies by running "npm install" from the terminal.
+  * Run "employee_tracker_db.sql" (located in the Assets folder) in a server instance of MySQL to create the table structure.
+  * "employee_tracker_seed.sql" (located in the Assets folder) has been included to provide seed data if needed. This will also need to be run in a server instance of MySQL.
   
   ## Usage:
   * Run application from the terminal with "npm start"
