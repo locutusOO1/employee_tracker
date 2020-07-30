@@ -103,8 +103,8 @@ function viewRoles() {
 
 function viewEmployees() {
     connection.query(
-        `select e.first_name "First Name",e.last_name "Last Name",d.name Name,r.title Title, 
-            concat('$',format(r.salary,2)) Salary,e.id "Employee ID",concat(m.first_name," ",m.last_name) Manager
+        `select e.first_name FirstName,e.last_name LastName,d.name Department,r.title Title, 
+            concat('$',format(r.salary,2)) Salary,e.id EmployeeID,concat(m.first_name," ",m.last_name) Manager
          from employee e
          left join role r on (e.role_id = r.id)
          left join department d on (r.department_id = d.id)
@@ -204,7 +204,7 @@ function deleteDepartment() {
 function addRole() {
     connection.query("select * from department order by name,id",
     function(err, results) {
-        let resArr = [];
+        let resArr = ["No Department"];
         if (err) throw err;
         results.forEach(element => {
             resArr.push(`${element.name} - ${element.id}`);
@@ -229,7 +229,7 @@ function addRole() {
                 choices: resArr
             }
         ]).then(answers => {
-            let deptId = answers.department_id.split(' - ').pop();
+            let deptId = (answers.department_id === "No Department" ) ? null : parseInt(answers.department_id.split(' - ').pop());
             connection.query("insert into role (title,salary,department_id) values (?,?,?)",
             [answers.title,answers.salary,deptId],
             function(err) {
@@ -281,7 +281,7 @@ function addEmployee() {
          left join department d on (d.id = r.department_id)
          order by r.title,d.name`,
     function(err, results) {
-        let roleArr = [];
+        let roleArr = ["No Role"];
         if (err) throw err;
         results.forEach(element => {
             roleArr.push(`${element.Title} - ${element.Salary} - ${element.Department} - ${element.RoleID}`);
@@ -294,7 +294,7 @@ function addEmployee() {
              left join employee m on (e.manager_id = m.id)
              order by e.first_name,e.last_name,d.name,r.title`,
         function(err2,results2) {
-            let managerArr = [];
+            let managerArr = ["No Manager"];
             if (err2) throw err2;
             results2.forEach(element => {
                 managerArr.push(`${element.FirstName} ${element.LastName} - ${element.Title} - ${element.Department} - ${element.EmployeeID}`);
@@ -325,8 +325,8 @@ function addEmployee() {
                     choices: managerArr
                 }
             ]).then(answers => {
-                let roleId = answers.role_id.split(' - ').pop();
-                let managerId = answers.manager_id.split(' - ').pop();
+                let roleId = (answers.role_id === "No Role" ) ? null : parseInt(answers.role_id.split(' - ').pop());
+                let managerId = (answers.manager_id === "No Manager" ) ? null : parseInt(answers.manager_id.split(' - ').pop());
                 connection.query("insert into employee (first_name,last_name,role_id,manager_id) values (?,?,?,?)",
                 [answers.first_name,answers.last_name,roleId,managerId],
                 function(err) {
@@ -413,7 +413,7 @@ function updateEmployeeRole() {
                         type: "list",
                         message: "Choose role to delete (Title - Salary - Department - RoleID):",
                         choices: function () {
-                            var options2 = [];
+                            var options2 = ["No Role"];
                             results2.forEach(element => {
                                 options2.push(`${element.Title} - ${element.Salary} - ${element.Department} - ${element.RoleID}`);
                             });
@@ -422,8 +422,9 @@ function updateEmployeeRole() {
                     }
                 ]).then(function(answer2) {
                     let empId = parseInt(answer.employee_id.split(' - ').pop());
-                    let deptId = parseInt(answer2.role_id.split(' - ').pop());
-                    connection.query(`update employee set role_id = ${deptId} where id = ${empId}`,
+                    // let roleId = parseInt(answer2.role_id.split(' - ').pop());
+                    let roleId = (answer2.role_id === "No Role" ) ? null : parseInt(answer2.role_id.split(' - ').pop());
+                    connection.query(`update employee set role_id = ${roleId} where id = ${empId}`,
                     function(err3, results3) {
                         if (err3) throw err3;
                         initPrompt();
@@ -475,7 +476,7 @@ function updateEmployeeManager() {
                         type: "list",
                         message: "Choose manager to update to (Name - Department - Title - Salary - Manager - EmployeeID):",
                         choices: function () {
-                            var options2 = [];
+                            var options2 = ["No Manager"];
                             results2.forEach(element => {
                                 options2.push(`${element.FirstName} ${element.LastName} - ${element.Department} - ${element.Title} - ${element.Salary} - ${element.Manager} - ${element.EmployeeID}`);
                             });
@@ -484,7 +485,7 @@ function updateEmployeeManager() {
                     }
                 ]).then(function(answer2) {
                     let empId = parseInt(answer.employee_id.split(' - ').pop());
-                    let managerId = parseInt(answer2.manager_id.split(' - ').pop());
+                    let managerId = (answer2.manager_id === "No Manager" ) ? null : parseInt(answer2.manager_id.split(' - ').pop());
                     connection.query(`update employee set manager_id = ${managerId} where id = ${empId}`,
                     function(err3, results3) {
                         if (err3) throw err3;
